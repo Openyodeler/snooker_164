@@ -20,6 +20,7 @@ public class Ball : MonoBehaviour , IPointerClickHandler
 {
     [SerializeField] private BallColor color;
     [SerializeField] private int point;
+    public int Point {  get { return point; }  set { point = value; } }
     [SerializeField] private MeshRenderer meshRenderer;
     [SerializeField] private Material[] ballMaterials;
 
