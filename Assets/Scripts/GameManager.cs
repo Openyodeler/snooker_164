@@ -1,20 +1,37 @@
+using System.Collections;
+using System.Threading;
 using TMPro;
 using UnityEditor.Search;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 
 public class GameManager : MonoBehaviour
-{
+{   
+    enum state
+    {
+        idle,
+        lining,
+        shoted
+    }
+    public enum GameState
+    {
+        Default,
+        Win,
+        Lose
+    }
     [SerializeField] private int playerScore;
 
     public int PlayerScore { get { return playerScore; } set { playerScore = value; } }
     public static GameManager instance;
+    public GameState gamestate = GameState.Default;
 
     [SerializeField] private GameObject[] ballPositions;
     [SerializeField] private GameObject ballPrefab;
-
+    [SerializeField] private state State = state.idle;
     [SerializeField] private GameObject cueball;
     [SerializeField] private GameObject Line;
     [SerializeField] private GameObject cuestick;
@@ -23,7 +40,7 @@ public class GameManager : MonoBehaviour
 
 
     private float xInput = 0f;
-    private float Force = 0f;
+    [SerializeField] private float Force = 0f;
     private void Awake()
     {
         instance = this;
@@ -32,60 +49,83 @@ public class GameManager : MonoBehaviour
     {
         int i = 0;
         foreach (var ball in ballPositions)
-        {   
-            SetBall((BallColor)i, i);
+        {
+            SetBall((BallColor)i+1, i);
             i++;
         }
         NotiText.text = ("");
     }
     private void Update()
     {
-        if (Keyboard.current.upArrowKey.isPressed)
-        {
-            Force += 0.1f;
-            if (Force > 50)
+            if (Keyboard.current.upArrowKey.isPressed && State != state.shoted)
             {
-                Force = 50;
+                State = state.lining;
+                Force += 0.1f;
+                if (Force > 50)
+                {
+                    Force = 50;
+                }
+                Line.transform.localScale = new Vector3(0f, 0f, Force / 5);
+
+                cuestick.transform.localPosition = new Vector3(
+                cuestick.transform.localPosition.x,
+                cuestick.transform.localPosition.y,
+                -8f - (Force / 25f)
+            );
             }
-            Line.transform.localScale = new Vector3(0f, 0f, Force / 5);
-        }
-        else 
-        {
-            
-            if (Force > 0)
+            else if (State != state.shoted)
             {
-                Force -= 0.1f;
-                
+                State = state.idle;
+                if (Force > 0)
+                {
+                    Force -= 0.1f;
+
+                }
+                else
+                {
+                    Force = 0f;
+                }
+                Line.transform.localScale = new Vector3(0f, 0f, Force / 5);
+                cuestick.transform.localPosition = new Vector3(
+                cuestick.transform.localPosition.x,
+                cuestick.transform.localPosition.y,
+                -8f - (Force / 25f));
+            }
+            if (Keyboard.current.spaceKey.wasPressedThisFrame)
+            {
+                State = state.shoted;
+                ShotBall();
+            }
+
+            if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed)
+            {
+                xInput = -0.1f;
+            }
+            else if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed)
+            {
+                xInput = 0.1f;
             }
             else
             {
-                Force = 0f;
+                xInput = 0f;
             }
-            Line.transform.localScale = new Vector3(0f, 0f, Force / 5);
-        }
-        if (Keyboard.current.spaceKey.wasPressedThisFrame)
-        {
-            ShotBall();
-            Force = 0;
-        }
+            RotateBall();
+            if (playerScore >= 20)
+            {
+                gamestate = GameState.Win;
+                ShowString("You have Beated the Game \npress r to restart");
+            }
 
-        if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) 
-        {
-            xInput = -0.1f;
-        }
-        else if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed)
-        {
-            xInput = 0.1f;
-        }
-        else
-        {
-            xInput = 0f;
-        }
-        RotateBall();
-        if (Keyboard.current.backspaceKey.wasPressedThisFrame)
-        {
-            StopBall();
-        }
+
+            if (Keyboard.current.rKey.wasPressedThisFrame &&
+                (gamestate == GameState.Win || gamestate == GameState.Lose))
+            {
+                ReplayGame();
+            }
+    }
+    private void ReplayGame()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
     private void SetBall(BallColor col,int i)
     {
@@ -99,11 +139,39 @@ public class GameManager : MonoBehaviour
 
     private void ShotBall()
     {
-        Rigidbody rb = cueball.GetComponent<Rigidbody>();
-        rb.AddRelativeForce(Vector3.forward * Force,ForceMode.Impulse);
+        cuestick.transform.localPosition = new Vector3(
+            cuestick.transform.localPosition.x,
+            cuestick.transform.localPosition.y,
+            -7f
+        );
 
         Line.SetActive(false);
+
+        Invoke(nameof(ApplyForce), 0.1f);
+    }
+
+    private void ApplyForce()
+    {
+        Rigidbody rb = cueball.GetComponent<Rigidbody>();
+        rb.AddRelativeForce(Vector3.forward * Force, ForceMode.Impulse);
+        Force = 0;
+
         cuestick.SetActive(false);
+
+        Invoke(nameof(CheckBallStopped), 0.1f);
+    }
+    private void CheckBallStopped()
+    {
+        Rigidbody rb = cueball.GetComponent<Rigidbody>();
+
+        if (rb.linearVelocity.magnitude < 0.01f && State == state.shoted)
+        {
+            StopBall();
+        }
+        else
+        {
+            Invoke(nameof(CheckBallStopped), 0.1f);
+        }
     }
 
     private void RotateBall()
@@ -128,6 +196,7 @@ public class GameManager : MonoBehaviour
 
         Line.SetActive(true);
         cuestick.SetActive(true);
+        State = state.idle;
     }
 
     public void ShowNotiText(int i)

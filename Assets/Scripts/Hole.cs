@@ -11,8 +11,9 @@ public class Hole : MonoBehaviour
             return;
         if (b.Point == 0)
         {
-            GameManager.instance.ShowString("Game OVer");
+            GameManager.instance.ShowString("Game OVer \npress r to restart");
             Time.timeScale = 0;
+            GameManager.instance.gamestate = GameManager.GameState.Lose;
             return;
         }
         GameManager.instance.ShowNotiText(b.Point);
