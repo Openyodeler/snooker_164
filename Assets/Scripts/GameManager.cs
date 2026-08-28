@@ -119,7 +119,8 @@ public class GameManager : MonoBehaviour
 
             if (Keyboard.current.rKey.wasPressedThisFrame &&
                 (gamestate == GameState.Win || gamestate == GameState.Lose))
-            {
+            {   
+                Time.timeScale = 1f;
                 ReplayGame();
             }
     }
